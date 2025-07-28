@@ -20,7 +20,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class RepoAnalyzer {
+
 	private static final Map<String, Set<String>> deps = new java.util.HashMap<>();
+
 	public static void main(String[] args) throws IOException {
 		Path repoPath = Paths.get("src/main/java");
 		CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
@@ -34,28 +36,29 @@ public class RepoAnalyzer {
 
 		SourceRoot sourceRoot = new SourceRoot(repoPath);
 
-		List<CompilationUnit> compilationUnits = sourceRoot.tryToParse().stream()
+		List<CompilationUnit> compilationUnits = sourceRoot.tryToParse()
+			.stream()
 			.filter(result -> result.isSuccessful() && result.getResult().isPresent())
 			.map(result -> result.getResult().get())
 			.collect(Collectors.toList());
 
 		System.out.println("Parsed " + compilationUnits.size() + " compilation units.");
 
-		for(CompilationUnit cu : compilationUnits) {
+		for (CompilationUnit cu : compilationUnits) {
 			extractInfo(cu);
 		}
 
 		System.out.println("\n--- DOT (copy to graph.dot) ---");
 		System.out.println("digraph G {");
 		System.out.println("  rankdir=LR;");
-		deps.forEach((from, tos) -> tos.forEach(to ->
-			System.out.printf("  \"%s\" -> \"%s\";%n", from, to)));
+		deps.forEach((from, tos) -> tos.forEach(to -> System.out.printf("  \"%s\" -> \"%s\";%n", from, to)));
 		System.out.println("}");
 
 	}
 
 	private static void addEdge(String from, String to) {
-		if (to == null || from.equals(to) || to.startsWith("java.lang")) return;
+		if (to == null || from.equals(to) || to.startsWith("java.lang"))
+			return;
 		deps.computeIfAbsent(from, k -> new java.util.HashSet<>()).add(to);
 	}
 
@@ -70,39 +73,42 @@ public class RepoAnalyzer {
 			System.out.println("  Is Public: " + classDecl.isPublic());
 			System.out.println("  Line Number: " + classDecl.getBegin().map(pos -> pos.line).orElse(-1));
 
-			classDecl.getExtendedTypes().forEach(extendedType ->
-				System.out.println("  Extends: " + extendedType.getNameAsString()));
-			classDecl.getImplementedTypes().forEach(implementedType ->
-				System.out.println("  Implements: " + implementedType.getNameAsString()));
+			classDecl.getExtendedTypes()
+				.forEach(extendedType -> System.out.println("  Extends: " + extendedType.getNameAsString()));
+			classDecl.getImplementedTypes()
+				.forEach(implementedType -> System.out.println("  Implements: " + implementedType.getNameAsString()));
 
 			System.out.println("  Fields:");
 			classDecl.findAll(FieldDeclaration.class).forEach(fieldDecl -> {
-				String modifiers = fieldDecl.getModifiers().stream()
+				String modifiers = fieldDecl.getModifiers()
+					.stream()
 					.map(Modifier::getKeyword)
 					.map(Modifier.Keyword::asString)
 					.collect(Collectors.joining(" "));
 
 				fieldDecl.getVariables().forEach(variable -> {
 					System.out.println("    - " + (modifiers.isEmpty() ? "" : modifiers + " ")
-					+ variable.getType().asString() + " " + variable.getNameAsString());
+							+ variable.getType().asString() + " " + variable.getNameAsString());
 				});
 			});
 
 			System.out.println("  Methods:");
 			classDecl.findAll(MethodDeclaration.class).forEach(methodDecl -> {
-				String modifiers = methodDecl.getModifiers().stream()
+				String modifiers = methodDecl.getModifiers()
+					.stream()
 					.map(Modifier::getKeyword)
 					.map(Modifier.Keyword::asString)
 					.collect(Collectors.joining(" "));
 
 				String returnType = methodDecl.getType().asString();
 				String methodName = methodDecl.getNameAsString();
-				String parameters = methodDecl.getParameters().stream()
+				String parameters = methodDecl.getParameters()
+					.stream()
 					.map(param -> param.getType().asString() + " " + param.getNameAsString())
 					.collect(Collectors.joining(", ", "(", ")"));
 
-				System.out.println("    - " + (modifiers.isEmpty() ? "" : modifiers + " ")
-					+ returnType + " " + methodName + "(" + parameters + ")");
+				System.out.println("    - " + (modifiers.isEmpty() ? "" : modifiers + " ") + returnType + " "
+						+ methodName + "(" + parameters + ")");
 				System.out.println("      Line Number: " + methodDecl.getBegin().map(pos -> pos.line).orElse(-1));
 				System.out.println("      Body Line Count: " + methodDecl.getBody()
 					.map(body -> body.getEnd().get().line - body.getBegin().get().line - 1)
@@ -110,6 +116,5 @@ public class RepoAnalyzer {
 			});
 		});
 	}
-
 
 }
