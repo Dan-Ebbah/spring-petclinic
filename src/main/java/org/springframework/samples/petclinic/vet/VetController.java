@@ -15,9 +15,13 @@
  */
 package org.springframework.samples.petclinic.vet;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
@@ -25,6 +29,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * @author Juergen Hoeller
@@ -35,20 +40,36 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 class VetController {
 
-	private final VetRepository vetRepository;
+	private final RestTemplate restTemplate;
 
-	public VetController(VetRepository vetRepository) {
-		this.vetRepository = vetRepository;
+	@Value("${petclinic.vet.service.url}")
+	private String vetServiceUrl;
+
+	public VetController(RestTemplate restTemplate) {
+		this.restTemplate = restTemplate;
 	}
 
 	@GetMapping("/vets.html")
 	public String showVetList(@RequestParam(defaultValue = "1") int page, Model model) {
-		// Here we are returning an object of type 'Vets' rather than a collection of Vet
-		// objects so it is simpler for Object-Xml mapping
-		Vets vets = new Vets();
-		Page<Vet> paginated = findPaginated(page);
-		vets.getVetList().addAll(paginated.toList());
+		String url = this.vetServiceUrl + "/vets";
+		Vet[] vetsResponse = restTemplate.getForObject(url, Vet[].class);
+		List<Vet> allVets = Arrays.asList(vetsResponse);
+
+		for (Vet vet : allVets) {
+			System.out.println("Vet: " + vet.getFirstName());
+		}
+
+		int pageSize = 5;
+		Page<Vet> paginated = paginateList(allVets, page, pageSize);
+
 		return addPaginationModel(page, paginated, model);
+	}
+
+	private Page<Vet> paginateList(List<Vet> allVets, int page, int pageSize) {
+		int start = Math.min((page - 1) * pageSize, allVets.size());
+		int end = Math.min(start + pageSize, allVets.size());
+		List<Vet> paginatedList = allVets.subList(start, end);
+		return new PageImpl<>(paginatedList, PageRequest.of(page - 1, pageSize), allVets.size());
 	}
 
 	private String addPaginationModel(int page, Page<Vet> paginated, Model model) {
@@ -60,19 +81,13 @@ class VetController {
 		return "vets/vetList";
 	}
 
-	private Page<Vet> findPaginated(int page) {
-		int pageSize = 5;
-		Pageable pageable = PageRequest.of(page - 1, pageSize);
-		return vetRepository.findAll(pageable);
-	}
-
-	@GetMapping({ "/vets" })
-	public @ResponseBody Vets showResourcesVetList() {
-		// Here we are returning an object of type 'Vets' rather than a collection of Vet
-		// objects so it is simpler for JSon/Object mapping
-		Vets vets = new Vets();
-		vets.getVetList().addAll(this.vetRepository.findAll());
-		return vets;
-	}
+	// @GetMapping({ "/vets" })
+	// public @ResponseBody Vets showResourcesVetList() {
+	// // Here we are returning an object of type 'Vets' rather than a collection of Vet
+	// // objects so it is simpler for JSon/Object mapping
+	// Vets vets = new Vets();
+	// vets.getVetList().addAll(this.vetRepository.findAll());
+	// return vets;
+	// }
 
 }
