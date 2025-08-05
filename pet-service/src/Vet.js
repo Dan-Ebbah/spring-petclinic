@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const app = express();
@@ -5,7 +6,7 @@ const port = 3000;
 
 app.use(express.json());
 
-mongoose.connect('mongodb+srv://dev:EdkRaKSPglFNQUyR@cluster0.shpmxqo.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+mongoose.connect(process.env.MONGO_DB_URI, {
     useNewUrlParser: true,
 })
     .then(() => console.log('MongoDB connected'))
